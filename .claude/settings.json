@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(node \"c:/Users/pawel/Documents/github/audio-meter-app/scripts/generate-icons.mjs\")",
+      "Bash(cargo --version)",
+      "Bash(wasm-pack --version)",
+      "Bash(rustc --version)",
+      "Bash(wasm-pack build *)"
+    ]
+  }
+}
