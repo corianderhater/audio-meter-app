@@ -4,8 +4,8 @@ interface Props {
   status: AudioStatus;
   onStart: () => void;
   onStop: () => void;
-  view: "spectrum" | "spectrogram";
-  onViewChange: (v: "spectrum" | "spectrogram") => void;
+  view: "spectrum" | "spectrogram" | "ridges";
+  onViewChange: (v: "spectrum" | "spectrogram" | "ridges") => void;
   calibrationDb: number;
   onCalibrationChange: (v: number) => void;
   onResetPeaks: () => void;
@@ -45,6 +45,12 @@ export function Controls({
             onClick={() => onViewChange("spectrogram")}
           >
             Waterfall
+          </button>
+          <button
+            className={view === "ridges" ? "active" : ""}
+            onClick={() => onViewChange("ridges")}
+          >
+            Ridges
           </button>
         </div>
 

@@ -5,6 +5,7 @@ import { Controls } from "./components/Controls";
 import { SpectrumView } from "./components/SpectrumView";
 import { LoudnessMeter } from "./components/LoudnessMeter";
 import { Spectrogram } from "./components/Spectrogram";
+import { Waterfall3D } from "./components/Waterfall3D";
 import { BpmDisplay } from "./components/BpmDisplay";
 import { KeyDisplay } from "./components/KeyDisplay";
 import { Tuner } from "./components/Tuner";
@@ -13,7 +14,7 @@ const CAL_KEY = "audioMeter.calibrationDb";
 const MODE_KEY = "audioMeter.mode";
 
 type Mode = "meter" | "tuner";
-type ViewMode = "spectrum" | "spectrogram";
+type ViewMode = "spectrum" | "spectrogram" | "ridges";
 
 function loadCalibration(): number {
   try {
@@ -158,7 +159,7 @@ export function App() {
                 fftSize={audio.fftSize}
               />
             </div>
-            {view === "spectrum" ? (
+            {view === "spectrum" && (
               <SpectrumView
                 analyser={audio.analyser}
                 sampleRate={audio.sampleRate}
@@ -167,8 +168,18 @@ export function App() {
                 peakResetToken={peakResetToken}
                 theme={theme}
               />
-            ) : (
+            )}
+            {view === "spectrogram" && (
               <Spectrogram
+                analyser={audio.analyser}
+                sampleRate={audio.sampleRate}
+                fftSize={audio.fftSize}
+                calibrationDb={calibrationDb}
+                theme={theme}
+              />
+            )}
+            {view === "ridges" && (
+              <Waterfall3D
                 analyser={audio.analyser}
                 sampleRate={audio.sampleRate}
                 fftSize={audio.fftSize}
