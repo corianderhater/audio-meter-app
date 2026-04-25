@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useAudioAnalyser } from "./hooks/useAudioAnalyser";
 import { useTheme } from "./hooks/useTheme";
 import { Controls } from "./components/Controls";
@@ -10,11 +10,17 @@ import { BpmDisplay } from "./components/BpmDisplay";
 import { KeyDisplay } from "./components/KeyDisplay";
 import { Tuner } from "./components/Tuner";
 
+// Wavefield pulls in three.js (~500 KB unminified). Lazy-load it so the
+// initial bundle stays small for users who never open the Mesh view.
+const Wavefield = lazy(() =>
+  import("./components/Wavefield").then((m) => ({ default: m.Wavefield })),
+);
+
 const CAL_KEY = "audioMeter.calibrationDb";
 const MODE_KEY = "audioMeter.mode";
 
 type Mode = "meter" | "tuner";
-type ViewMode = "spectrum" | "spectrogram" | "ridges";
+type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh";
 
 function loadCalibration(): number {
   try {
@@ -186,6 +192,23 @@ export function App() {
                 calibrationDb={calibrationDb}
                 theme={theme}
               />
+            )}
+            {view === "mesh" && (
+              <Suspense
+                fallback={
+                  <div className="placeholder">
+                    <p>Loading 3D…</p>
+                  </div>
+                }
+              >
+                <Wavefield
+                  analyser={audio.analyser}
+                  sampleRate={audio.sampleRate}
+                  fftSize={audio.fftSize}
+                  calibrationDb={calibrationDb}
+                  theme={theme}
+                />
+              </Suspense>
             )}
           </>
         )}

@@ -4,8 +4,8 @@ interface Props {
   status: AudioStatus;
   onStart: () => void;
   onStop: () => void;
-  view: "spectrum" | "spectrogram" | "ridges";
-  onViewChange: (v: "spectrum" | "spectrogram" | "ridges") => void;
+  view: "spectrum" | "spectrogram" | "ridges" | "mesh";
+  onViewChange: (v: "spectrum" | "spectrogram" | "ridges" | "mesh") => void;
   calibrationDb: number;
   onCalibrationChange: (v: number) => void;
   onResetPeaks: () => void;
@@ -51,6 +51,12 @@ export function Controls({
             onClick={() => onViewChange("ridges")}
           >
             Ridges
+          </button>
+          <button
+            className={view === "mesh" ? "active" : ""}
+            onClick={() => onViewChange("mesh")}
+          >
+            Mesh
           </button>
         </div>
 

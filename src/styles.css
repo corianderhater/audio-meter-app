@@ -361,6 +361,17 @@ input {
   border: 1px solid var(--ink);
 }
 
+.wavefield {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.wavefield:active {
+  cursor: grabbing;
+}
+
 /* ──────────────── controls ──────────────── */
 .controls {
   flex: 0 0 auto;
