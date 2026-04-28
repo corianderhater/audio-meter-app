@@ -19,17 +19,23 @@ const Wavefield = lazy(() =>
 const CAL_KEY = "audioMeter.calibrationDb";
 const MODE_KEY = "audioMeter.mode";
 
+// Typical iPhone digital MEMS mics report ~-26 dBFS at 94 dB SPL, so the
+// dBFS → dB SPL conversion needs roughly +120 dB. This is the out-of-box
+// default so values look like real SPL immediately; users still need to
+// fine-tune against a reference meter for accurate readings.
+const DEFAULT_CALIBRATION_DB = 120;
+
 type Mode = "meter" | "tuner";
 type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh";
 
 function loadCalibration(): number {
   try {
     const v = localStorage.getItem(CAL_KEY);
-    if (!v) return 0;
+    if (v == null) return DEFAULT_CALIBRATION_DB;
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : DEFAULT_CALIBRATION_DB;
   } catch {
-    return 0;
+    return DEFAULT_CALIBRATION_DB;
   }
 }
 

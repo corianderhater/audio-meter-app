@@ -12,8 +12,8 @@ interface Props {
   theme: "light" | "dark";
 }
 
-const FLOOR_DB = -90;
-const TOP_DB = 0;
+const FLOOR_DB = 0;
+const TOP_DB = 130;
 const BANDS = 96;
 const ROWS = 64;
 const SAMPLE_HZ = 30;
@@ -224,5 +224,42 @@ export function Wavefield({
     };
   }, [analyser, fftSize, layout, weights, theme]);
 
-  return <div ref={containerRef} className="spectrum wavefield" />;
+  // Outer div carries the existing flex/border styling; the inner div fills
+  // it and hosts the WebGL canvas. Two absolutely-positioned labels show the
+  // dB SPL range — a true 3D Y-axis with ticks would compete with the mesh
+  // visually for almost no extra information.
+  return (
+    <div className="spectrum wavefield" style={{ position: "relative" }}>
+      <div
+        ref={containerRef}
+        style={{ position: "absolute", inset: 0 }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          top: 6,
+          left: 8,
+          fontSize: 10,
+          letterSpacing: "0.04em",
+          opacity: 0.55,
+          pointerEvents: "none",
+        }}
+      >
+        130 dB SPL
+      </span>
+      <span
+        style={{
+          position: "absolute",
+          bottom: 6,
+          left: 8,
+          fontSize: 10,
+          letterSpacing: "0.04em",
+          opacity: 0.55,
+          pointerEvents: "none",
+        }}
+      >
+        0 dB SPL
+      </span>
+    </div>
+  );
 }

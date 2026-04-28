@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { AudioStatus } from "../hooks/useAudioAnalyser";
 
 interface Props {
@@ -22,6 +23,24 @@ export function Controls({
   onResetPeaks,
 }: Props) {
   const running = status === "running";
+
+  // Local string buffer so the user can transiently empty the field, type
+  // "-" before the digits, etc. Without this, parsing every keystroke and
+  // falling back to 0 makes "0" stick: backspacing it instantly re-fills 0,
+  // and "-" alone (start of a negative) is NaN → also forced back to 0.
+  const [calText, setCalText] = useState<string>(String(calibrationDb));
+
+  // Re-sync when the canonical value changes from outside (e.g. another tab,
+  // load from localStorage, future device-preset picker).
+  useEffect(() => {
+    setCalText((prev) => {
+      const parsed = Number(prev);
+      return Number.isFinite(parsed) && parsed === calibrationDb
+        ? prev
+        : String(calibrationDb);
+    });
+  }, [calibrationDb]);
+
   return (
     <footer className="controls">
       <div className="controls-row">
@@ -73,10 +92,26 @@ export function Controls({
               type="number"
               inputMode="decimal"
               step="0.1"
-              value={calibrationDb}
+              value={calText}
               onChange={(e) => {
-                const n = Number(e.target.value);
-                onCalibrationChange(Number.isFinite(n) ? n : 0);
+                const v = e.target.value;
+                setCalText(v);
+                // Don't push intermediate states (empty, lone "-" / ".")
+                // upstream — they'd parse as NaN and snap back to 0.
+                if (v === "" || v === "-" || v === "." || v === "-.") return;
+                const n = Number(v);
+                if (Number.isFinite(n)) onCalibrationChange(n);
+              }}
+              onBlur={() => {
+                const n = Number(calText);
+                if (!Number.isFinite(n)) {
+                  // User left the field in a half-typed state; commit 0
+                  // and normalize the visible text.
+                  onCalibrationChange(0);
+                  setCalText("0");
+                } else {
+                  setCalText(String(n));
+                }
               }}
             />
             <span className="unit">dB</span>

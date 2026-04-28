@@ -10,8 +10,8 @@ interface Props {
   theme: "light" | "dark";
 }
 
-const FLOOR_DB = -90;
-const TOP_DB = 10;
+const FLOOR_DB = 0;
+const TOP_DB = 130;
 const ROWS = 240; // history length in pixel-rows
 const BANDS = 160;
 
@@ -134,13 +134,53 @@ export function Spectrogram({
       offCtx.drawImage(off, 0, 0, BANDS, ROWS - 1, 0, 1, BANDS, ROWS - 1);
       offCtx.putImageData(rowImage, 0, 0);
 
-      // Stretch onto visible canvas
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+      // Reserve a strip on the left for the dB→colour legend.
+      const padLeft = 36 * dpr;
+      const w = canvas.width;
+      const h = canvas.height;
+      const plotW = w - padLeft;
 
-      // Frequency labels overlay — use contrasting color per theme
+      // Stretch the spectrogram onto the plot area (right of the legend).
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(off, padLeft, 0, plotW, h);
+
+      // dB legend: vertical greyscale strip with labels every 20 dB.
+      const legendW = 10 * dpr;
+      const legendX = padLeft - legendW - 4 * dpr;
+      // Top of strip = TOP_DB, bottom = FLOOR_DB.
+      const legendImg = ctx.createImageData(1, Math.max(1, Math.floor(h)));
+      for (let yi = 0; yi < legendImg.height; yi++) {
+        const t = 1 - yi / Math.max(1, legendImg.height - 1);
+        paletteRgb(t, stops, rgb);
+        const o = yi * 4;
+        legendImg.data[o] = rgb[0];
+        legendImg.data[o + 1] = rgb[1];
+        legendImg.data[o + 2] = rgb[2];
+        legendImg.data[o + 3] = 255;
+      }
+      // Stamp the 1-pixel-wide gradient and stretch it horizontally.
+      const legendOff = document.createElement("canvas");
+      legendOff.width = 1;
+      legendOff.height = legendImg.height;
+      const legendCtx = legendOff.getContext("2d");
+      if (legendCtx) {
+        legendCtx.putImageData(legendImg, 0, 0);
+        ctx.drawImage(legendOff, legendX, 0, legendW, h);
+      }
+
+      // dB labels along the legend.
       ctx.fillStyle = dark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)";
+      ctx.font = `${10 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let db = FLOOR_DB; db <= TOP_DB; db += 20) {
+        const y = h - ((db - FLOOR_DB) / (TOP_DB - FLOOR_DB)) * h;
+        ctx.fillText(`${db}`, legendX - 2 * dpr, y);
+      }
+
+      // Frequency labels along the top of the plot area.
       ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "left";
       ctx.textBaseline = "top";
       const marks: Array<[number, string]> = [
         [20, "20"],
@@ -153,8 +193,8 @@ export function Spectrogram({
       const logMax = Math.log10(20000);
       for (const [f, label] of marks) {
         const tx = (Math.log10(f) - logMin) / (logMax - logMin);
-        const x = tx * canvas.width;
-        ctx.fillText(label, Math.min(canvas.width - 28 * dpr, Math.max(2, x + 2)), 2);
+        const x = padLeft + tx * plotW;
+        ctx.fillText(label, Math.min(w - 28 * dpr, Math.max(padLeft + 2, x + 2)), 2);
       }
 
       raf = requestAnimationFrame(tick);

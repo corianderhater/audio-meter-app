@@ -10,8 +10,8 @@ interface Props {
   theme: "light" | "dark";
 }
 
-const FLOOR_DB = -90;
-const TOP_DB = 10;
+const FLOOR_DB = 0;
+const TOP_DB = 130;
 const BANDS = 96;
 const ROWS = 128;           // history depth — denser stack
 const SAMPLE_HZ = 30;       // new history row every ~33 ms (~4.3 s of history)
@@ -112,7 +112,12 @@ export function Waterfall3D({
       const maxRowH = dy * 48;
       const cal = calRef.current;
 
-      ctx.lineWidth = 1.5 * dpr;
+      // On narrow viewports (mobile), scale the stroke down to 0.3× so the
+      // dense stack of ridges doesn't blob into a solid mass.
+      const mobile =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 640px)").matches;
+      ctx.lineWidth = (mobile ? 1.5 * 0.3 : 1.5) * dpr;
       ctx.lineJoin = "round";
       ctx.strokeStyle = ink;
       ctx.fillStyle = bg;
@@ -169,6 +174,7 @@ export function Waterfall3D({
       // Frequency labels along the bottom.
       ctx.fillStyle = dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)";
       ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "left";
       ctx.textBaseline = "bottom";
       const marks: Array<[number, string]> = [
         [20, "20"],
@@ -188,6 +194,16 @@ export function Waterfall3D({
           h - 6 * dpr,
         );
       }
+
+      // Per-row amplitude scale: each row's curve climbs from baseline (0 dB)
+      // up to maxRowH at TOP_DB SPL. Annotate at the top-left and bottom-left
+      // so the user knows what amplitude any one ridge represents.
+      ctx.font = `${10 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${TOP_DB} dB SPL`, 6 * dpr, 4 * dpr);
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${FLOOR_DB} dB SPL`, 6 * dpr, h - 18 * dpr);
 
       raf = requestAnimationFrame(tick);
     };

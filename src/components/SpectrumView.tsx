@@ -11,8 +11,10 @@ interface Props {
   theme: "light" | "dark";
 }
 
-const FLOOR_DB = -90;
-const TOP_DB = 10;
+// dB SPL range: full span from threshold of hearing (0) to threshold of
+// pain (130). Visualisations map values into this range linearly.
+const FLOOR_DB = 0;
+const TOP_DB = 130;
 const PEAK_HOLD_MS = 1500;
 const PEAK_DECAY_DB_PER_SEC = 12;
 const BANDS = 80;
@@ -97,19 +99,31 @@ export function SpectrumView({
       ctx.fillStyle = dark ? "#000000" : "#ffffff";
       ctx.fillRect(0, 0, w, h);
 
-      // grid lines (every 10 dB, plus marker frequencies)
+      // Reserve a strip on the left for dB labels and one on the bottom for
+      // frequency labels.
+      const padLeft = 36 * dpr;
+      const padBottom = 16 * dpr;
+      const plotW = w - padLeft;
+      const plotH = h - padBottom;
+
+      // Horizontal grid lines + dB labels on the left, every 20 dB.
       ctx.strokeStyle = dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
       ctx.lineWidth = 1;
-      for (let db = TOP_DB; db >= FLOOR_DB; db -= 10) {
-        const y = ((TOP_DB - db) / (TOP_DB - FLOOR_DB)) * h;
+      ctx.fillStyle = dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)";
+      ctx.font = `${10 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let db = FLOOR_DB; db <= TOP_DB; db += 20) {
+        const y = plotH - ((db - FLOOR_DB) / (TOP_DB - FLOOR_DB)) * plotH;
         ctx.beginPath();
-        ctx.moveTo(0, y);
+        ctx.moveTo(padLeft, y);
         ctx.lineTo(w, y);
         ctx.stroke();
+        ctx.fillText(`${db}`, padLeft - 4 * dpr, y);
       }
 
-      const gap = Math.max(1, Math.floor(w / BANDS / 6));
-      const bw = (w - gap * (BANDS - 1)) / BANDS;
+      const gap = Math.max(1, Math.floor(plotW / BANDS / 6));
+      const bw = (plotW - gap * (BANDS - 1)) / BANDS;
       const decayDb = PEAK_DECAY_DB_PER_SEC * dtSec;
 
       for (let i = 0; i < BANDS; i++) {
@@ -128,9 +142,9 @@ export function SpectrumView({
           1,
           Math.max(0, (cur - FLOOR_DB) / (TOP_DB - FLOOR_DB)),
         );
-        const barH = t * h;
-        const x = i * (bw + gap);
-        const y = h - barH;
+        const barH = t * plotH;
+        const x = padLeft + i * (bw + gap);
+        const y = plotH - barH;
 
         ctx.fillStyle = colorForLevel(t, dark);
         ctx.fillRect(x, y, bw, barH);
@@ -140,15 +154,16 @@ export function SpectrumView({
             1,
             Math.max(0, (peakDisplay - FLOOR_DB) / (TOP_DB - FLOOR_DB)),
           );
-          const py = h - pt * h - 1 * dpr;
+          const py = plotH - pt * plotH - 1 * dpr;
           ctx.fillStyle = dark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.9)";
           ctx.fillRect(x, Math.max(0, py), bw, 2 * dpr);
         }
       }
 
-      // frequency labels
+      // frequency labels along the bottom
       ctx.fillStyle = dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)";
       ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+      ctx.textAlign = "left";
       ctx.textBaseline = "bottom";
       const marks: Array<[number, string]> = [
         [20, "20"],
@@ -161,8 +176,12 @@ export function SpectrumView({
       const logMax = Math.log10(20000);
       for (const [f, label] of marks) {
         const tx = (Math.log10(f) - logMin) / (logMax - logMin);
-        const x = tx * w;
-        ctx.fillText(label, Math.min(w - 20 * dpr, Math.max(2, x + 2)), h - 2);
+        const x = padLeft + tx * plotW;
+        ctx.fillText(
+          label,
+          Math.min(w - 24 * dpr, Math.max(padLeft + 2, x + 2)),
+          h - 2,
+        );
       }
 
       raf = requestAnimationFrame(tick);

@@ -7,7 +7,13 @@
       "Bash(cargo --version)",
       "Bash(wasm-pack --version)",
       "Bash(rustc --version)",
-      "Bash(wasm-pack build *)"
+      "Bash(wasm-pack build *)",
+      "WebSearch",
+      "WebFetch(domain:studiosixdigital.com)",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.nature.com)",
+      "WebFetch(domain:pubs.asha.org)"
     ]
   }
 }

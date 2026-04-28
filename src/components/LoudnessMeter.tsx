@@ -60,8 +60,8 @@ export function LoudnessMeter({
             : "peak —";
         }
         if (barRef.current) {
-          // Map -60..+10 to 0..1 for the bar
-          const t = Math.min(1, Math.max(0, (cur + 60) / 70));
+          // Map 0..130 dB SPL to 0..1 (threshold of hearing → pain).
+          const t = Math.min(1, Math.max(0, cur / 130));
           barRef.current.style.width = `${(t * 100).toFixed(1)}%`;
         }
       }
@@ -72,23 +72,22 @@ export function LoudnessMeter({
     return () => cancelAnimationFrame(raf);
   }, [analyser, fftSize, weights]);
 
-  const uncalibrated = calibrationDb === 0;
-
   return (
     <div className="loudness">
       <div className="loudness-readout">
         <span className="loudness-num" ref={numRef}>—</span>
-        <span className="loudness-unit">dB{uncalibrated ? "FS" : " SPL"} (A)</span>
+        <span className="loudness-unit">dB SPL (A)</span>
         <span className="loudness-peak" ref={peakRef}>peak —</span>
       </div>
       <div className="loudness-bar">
         <div className="loudness-bar-fill" ref={barRef} />
       </div>
-      {uncalibrated && (
-        <div className="badge-uncal" title="Set a calibration offset to map this reading to real-world dB SPL.">
-          UNCALIBRATED
-        </div>
-      )}
+      <div
+        className="badge-uncal"
+        title="Approximate. Place a reference SPL meter next to the phone and adjust the calibration offset until the readings match for accurate values."
+      >
+        APPROX
+      </div>
     </div>
   );
 }
