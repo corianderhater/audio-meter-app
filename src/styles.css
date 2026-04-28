@@ -237,13 +237,18 @@ input {
   height: 6px;
   background: var(--inset);
   border: 1px solid var(--ink);
+  /* No overflow:hidden so the bar fill's glow can spill beyond the track. */
+  position: relative;
 }
 
 .loudness-bar-fill {
   height: 100%;
   width: 0%;
   background: var(--ink);
-  transition: width 60ms linear;
+  transition:
+    width 60ms linear,
+    background-color 200ms ease,
+    box-shadow 200ms ease;
 }
 
 .badge-uncal {
@@ -256,6 +261,108 @@ input {
   background: var(--ink);
   color: var(--bg);
   padding: 3px 7px;
+}
+
+/* Material picker (Wavefield/Mesh view) — three circular swatches. */
+.material-menu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 5;
+}
+
+.material-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  padding: 0;
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition:
+    transform 100ms ease,
+    box-shadow 150ms ease;
+}
+
+.material-circle:hover {
+  transform: scale(1.06);
+}
+
+.material-circle.active {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.material-circle.grayscale {
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff 0%, #c8c8c8 35%, #404040 95%);
+}
+
+.material-circle.chrome {
+  /* Neon highlights on dark chrome — mirrors the four coloured point lights
+     applied to the actual mesh in chrome mode. */
+  background:
+    radial-gradient(circle at 22% 26%, #ff3da8 0%, transparent 38%),
+    radial-gradient(circle at 78% 30%, #2af6ff 0%, transparent 38%),
+    radial-gradient(circle at 65% 78%, #ffb13a 0%, transparent 42%),
+    radial-gradient(circle at 28% 78%, #36ffa1 0%, transparent 38%),
+    radial-gradient(circle at 50% 50%, #2a1a3a 0%, #060010 100%);
+}
+
+.material-circle.texture {
+  background-color: var(--inset);
+}
+
+.material-circle.camera {
+  background-color: var(--inset);
+}
+
+.material-circle.camera svg {
+  display: block;
+}
+
+.material-circle.texture svg,
+.material-circle.camera svg {
+  display: block;
+}
+
+/* Banner shown until the user adjusts the calibration from default. */
+.cal-notice {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink);
+  border-left-width: 4px;
+  background: var(--inset);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cal-notice strong {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.cal-notice code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  padding: 0 3px;
+  border: 1px solid var(--ink-faint);
 }
 
 /* ──────────────── BPM ──────────────── */

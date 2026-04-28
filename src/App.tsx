@@ -23,7 +23,9 @@ const MODE_KEY = "audioMeter.mode";
 // dBFS → dB SPL conversion needs roughly +120 dB. This is the out-of-box
 // default so values look like real SPL immediately; users still need to
 // fine-tune against a reference meter for accurate readings.
-const DEFAULT_CALIBRATION_DB = 120;
+// Default ≈ iPhone 13 Pro internal-mic offset. Other devices vary; the
+// banner below prompts the user to verify against a reference meter.
+const DEFAULT_CALIBRATION_DB = 125;
 
 type Mode = "meter" | "tuner";
 type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh";
@@ -150,6 +152,19 @@ export function App() {
             )}
           </div>
         )}
+
+        {running && audio.analyser && mode === "meter" &&
+          calibrationDb === DEFAULT_CALIBRATION_DB && (
+            <div className="cal-notice" role="status">
+              <strong>Calibrate for accurate dB SPL.</strong>
+              <span>
+                The current offset (<code>+{DEFAULT_CALIBRATION_DB} dB</code>)
+                matches a typical iPhone 13 Pro. Other devices vary by ±5 dB.
+                For best accuracy, place a reference SPL meter next to the
+                phone and adjust the offset below until both readings match.
+              </span>
+            </div>
+          )}
 
         {running && audio.analyser && mode === "meter" && (
           <>

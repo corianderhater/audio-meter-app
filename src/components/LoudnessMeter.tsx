@@ -63,6 +63,14 @@ export function LoudnessMeter({
           // Map 0..130 dB SPL to 0..1 (threshold of hearing → pain).
           const t = Math.min(1, Math.max(0, cur / 130));
           barRef.current.style.width = `${(t * 100).toFixed(1)}%`;
+          // Traffic-light tint + matching glow above hearing-safe levels.
+          let color: string;
+          if (cur >= 110) color = "#ff3b30";       // red — pain / damage risk
+          else if (cur >= 90) color = "#ffcc00";   // yellow — high
+          else color = "#34c759";                  // green — safe
+          barRef.current.style.background = color;
+          barRef.current.style.boxShadow =
+            `0 0 6px ${color}, 0 0 14px ${color}80`;
         }
       }
 
