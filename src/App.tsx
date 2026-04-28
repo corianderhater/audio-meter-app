@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAudioAnalyser } from "./hooks/useAudioAnalyser";
 import { useTheme } from "./hooks/useTheme";
 import { Controls } from "./components/Controls";
@@ -57,7 +57,50 @@ export function App() {
   const [calibrationDb, setCalibrationDb] = useState<number>(loadCalibration);
   const [view, setView] = useState<ViewMode>("spectrum");
   const [mode, setMode] = useState<Mode>(loadMode);
-  const [peakResetToken, setPeakResetToken] = useState(0);
+  const [vizFullscreen, setVizFullscreen] = useState(false);
+  const vizAreaRef = useRef<HTMLDivElement>(null);
+
+  // ESC exits fullscreen on desktop. Touch users tap the icon to exit.
+  useEffect(() => {
+    if (!vizFullscreen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVizFullscreen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [vizFullscreen]);
+
+  const toggleFullscreen = async () => {
+    // Prefer the native Fullscreen API (true edge-to-edge, hides browser
+    // chrome). Falls back to a CSS-based "fullscreen" class on iOS Safari
+    // where the API isn't available for arbitrary elements.
+    const el = vizAreaRef.current;
+    if (!el) return;
+    if (vizFullscreen || document.fullscreenElement) {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+      } catch {
+        // ignore
+      }
+      setVizFullscreen(false);
+      return;
+    }
+    try {
+      await el.requestFullscreen();
+      setVizFullscreen(true);
+    } catch {
+      setVizFullscreen(true); // CSS fallback
+    }
+  };
+
+  // Keep state in sync if user exits via browser/OS controls.
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement) setVizFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   useEffect(() => {
     try {
@@ -102,24 +145,23 @@ export function App() {
           <span className="badge-range">{subtitle}</span>
         </div>
         <div className="header-actions">
-          <nav className="mode-switch" role="tablist" aria-label="Mode">
-            <button
-              role="tab"
-              aria-selected={mode === "meter"}
-              className={mode === "meter" ? "active" : ""}
-              onClick={() => setMode("meter")}
-            >
-              Meter
-            </button>
-            <button
-              role="tab"
-              aria-selected={mode === "tuner"}
-              className={mode === "tuner" ? "active" : ""}
-              onClick={() => setMode("tuner")}
-            >
-              Tuner
-            </button>
-          </nav>
+          <button
+            className={`btn primary header-start ${running ? "stop" : ""}`}
+            onClick={running ? audio.stop : audio.start}
+            disabled={audio.status === "starting"}
+            aria-label={running ? "Stop measuring" : "Start measuring"}
+          >
+            {audio.status === "starting" ? "…" : running ? "Stop" : "Start"}
+          </button>
+          <select
+            className="mode-select"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as Mode)}
+            aria-label="Mode"
+          >
+            <option value="meter">Meter</option>
+            <option value="tuner">Tuner</option>
+          </select>
           <button
             className="theme-toggle"
             onClick={toggleTheme}
@@ -132,139 +174,141 @@ export function App() {
       </header>
 
       <main className="main">
-        {!running && (
-          <div className="placeholder">
-            {audio.status === "idle" && (
-              <>
-                <p>
-                  Tap <strong>Start</strong> to begin{" "}
-                  {mode === "tuner" ? "tuning" : "measuring"}.
-                </p>
-                <p className="hint">
-                  You will be asked for microphone access. Audio is processed
-                  on-device only and never leaves your phone.
-                </p>
-              </>
-            )}
-            {audio.status === "starting" && <p>Starting…</p>}
-            {audio.status === "error" && audio.error && (
-              <p className="error">{audio.error}</p>
-            )}
+        {running && audio.analyser && mode === "meter" && (
+          <div className="top-row">
+            <LoudnessMeter
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+              calibrationDb={calibrationDb}
+              onCalibrationChange={setCalibrationDb}
+            />
+            <BpmDisplay
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+            />
+            <KeyDisplay
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+            />
           </div>
         )}
 
-        {running && audio.analyser && mode === "meter" &&
-          calibrationDb === DEFAULT_CALIBRATION_DB && (
-            <div className="cal-notice" role="status">
-              <strong>Calibrate for accurate dB SPL.</strong>
-              <span>
-                The current offset (<code>+{DEFAULT_CALIBRATION_DB} dB</code>)
-                matches a typical iPhone 13 Pro. Other devices vary by ±5 dB.
-                For best accuracy, place a reference SPL meter next to the
-                phone and adjust the offset below until both readings match.
-              </span>
+        <div
+          className={`viz-area ${vizFullscreen ? "fullscreen" : ""}`}
+          ref={vizAreaRef}
+        >
+          {!running && (
+            <div className="placeholder">
+              {audio.status === "idle" && (
+                <>
+                  <p>
+                    Tap <strong>Start</strong> to begin{" "}
+                    {mode === "tuner" ? "tuning" : "measuring"}.
+                  </p>
+                  <p className="hint">
+                    You will be asked for microphone access. Audio is processed
+                    on-device only and never leaves your phone.
+                  </p>
+                </>
+              )}
+              {audio.status === "starting" && <p>Starting…</p>}
+              {audio.status === "error" && audio.error && (
+                <p className="error">{audio.error}</p>
+              )}
             </div>
           )}
 
-        {running && audio.analyser && mode === "meter" && (
-          <>
-            <div className="top-row">
-              <LoudnessMeter
-                analyser={audio.analyser}
-                sampleRate={audio.sampleRate}
-                fftSize={audio.fftSize}
-                calibrationDb={calibrationDb}
-              />
-              <BpmDisplay
-                analyser={audio.analyser}
-                sampleRate={audio.sampleRate}
-                fftSize={audio.fftSize}
-              />
-              <KeyDisplay
-                analyser={audio.analyser}
-                sampleRate={audio.sampleRate}
-                fftSize={audio.fftSize}
-              />
-            </div>
-            {view === "spectrum" && (
-              <SpectrumView
-                analyser={audio.analyser}
-                sampleRate={audio.sampleRate}
-                fftSize={audio.fftSize}
-                calibrationDb={calibrationDb}
-                peakResetToken={peakResetToken}
-                theme={theme}
-              />
-            )}
-            {view === "spectrogram" && (
-              <Spectrogram
-                analyser={audio.analyser}
-                sampleRate={audio.sampleRate}
-                fftSize={audio.fftSize}
-                calibrationDb={calibrationDb}
-                theme={theme}
-              />
-            )}
-            {view === "ridges" && (
-              <Waterfall3D
+          {running && audio.analyser && mode === "meter" && view === "spectrum" && (
+            <SpectrumView
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+              calibrationDb={calibrationDb}
+              theme={theme}
+            />
+          )}
+          {running && audio.analyser && mode === "meter" && view === "spectrogram" && (
+            <Spectrogram
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+              calibrationDb={calibrationDb}
+              theme={theme}
+            />
+          )}
+          {running && audio.analyser && mode === "meter" && view === "ridges" && (
+            <Waterfall3D
+              analyser={audio.analyser}
+              sampleRate={audio.sampleRate}
+              fftSize={audio.fftSize}
+              calibrationDb={calibrationDb}
+              theme={theme}
+            />
+          )}
+          {running && audio.analyser && mode === "meter" && view === "mesh" && (
+            <Suspense
+              fallback={
+                <div className="placeholder">
+                  <p>Loading 3D…</p>
+                </div>
+              }
+            >
+              <Wavefield
                 analyser={audio.analyser}
                 sampleRate={audio.sampleRate}
                 fftSize={audio.fftSize}
                 calibrationDb={calibrationDb}
                 theme={theme}
               />
-            )}
-            {view === "mesh" && (
-              <Suspense
-                fallback={
-                  <div className="placeholder">
-                    <p>Loading 3D…</p>
-                  </div>
-                }
-              >
-                <Wavefield
-                  analyser={audio.analyser}
-                  sampleRate={audio.sampleRate}
-                  fftSize={audio.fftSize}
-                  calibrationDb={calibrationDb}
-                  theme={theme}
-                />
-              </Suspense>
-            )}
-          </>
-        )}
+            </Suspense>
+          )}
+          {running && audio.analyser && mode === "tuner" && (
+            <Tuner analyser={audio.analyser} sampleRate={audio.sampleRate} />
+          )}
 
-        {running && audio.analyser && mode === "tuner" && (
-          <Tuner analyser={audio.analyser} sampleRate={audio.sampleRate} />
-        )}
+          <button
+            type="button"
+            className="viz-fullscreen-btn"
+            onClick={toggleFullscreen}
+            aria-label={vizFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            title={vizFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {vizFullscreen ? (
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 9V4h5M20 9V4h-5M20 15v5h-5M4 15v5h5" />
+              </svg>
+            )}
+          </button>
+        </div>
       </main>
 
       {mode === "meter" && (
-        <Controls
-          status={audio.status}
-          onStart={audio.start}
-          onStop={audio.stop}
-          view={view}
-          onViewChange={setView}
-          calibrationDb={calibrationDb}
-          onCalibrationChange={setCalibrationDb}
-          onResetPeaks={() => setPeakResetToken((n) => n + 1)}
-        />
-      )}
-      {mode === "tuner" && (
-        <footer className="controls controls-tuner">
-          <button
-            className={`btn primary ${running ? "stop" : ""}`}
-            onClick={running ? audio.stop : audio.start}
-            disabled={audio.status === "starting"}
-          >
-            {audio.status === "starting" ? "…" : running ? "Stop" : "Start"}
-          </button>
-          <p className="cal-hint">
-            Whistle, sing or play a single sustained note. The detector tracks
-            pitches from ~30 Hz (low B) to 2 kHz.
-          </p>
-        </footer>
+        <Controls view={view} onViewChange={setView} />
       )}
     </div>
   );

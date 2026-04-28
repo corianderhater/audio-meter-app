@@ -46,6 +46,9 @@ export function Wavefield({
 
   const [materialMode, setMaterialMode] = useState<MaterialMode>("grayscale");
   const [textureUrl, setTextureUrl] = useState<string | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
+    "environment",
+  );
 
   const layout = useMemo(
     () => buildBands(sampleRate, fftSize, BANDS),
@@ -210,7 +213,7 @@ export function Wavefield({
       });
       navigator.mediaDevices
         .getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: { facingMode: { ideal: cameraFacing } },
           audio: false,
         })
         .then(async (stream) => {
@@ -401,7 +404,16 @@ export function Wavefield({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [analyser, fftSize, layout, weights, theme, materialMode, textureUrl]);
+  }, [
+    analyser,
+    fftSize,
+    layout,
+    weights,
+    theme,
+    materialMode,
+    textureUrl,
+    cameraFacing,
+  ]);
 
   return (
     <div className="spectrum wavefield" style={{ position: "relative" }}>
@@ -471,6 +483,26 @@ export function Wavefield({
             <circle cx="12" cy="13" r="3.5" />
           </svg>
         </button>
+        {materialMode === "camera" && (
+          <div className="camera-facing-toggle" role="group" aria-label="Camera">
+            <button
+              type="button"
+              className={cameraFacing === "user" ? "active" : ""}
+              onClick={() => setCameraFacing("user")}
+              aria-pressed={cameraFacing === "user"}
+            >
+              Front
+            </button>
+            <button
+              type="button"
+              className={cameraFacing === "environment" ? "active" : ""}
+              onClick={() => setCameraFacing("environment")}
+              aria-pressed={cameraFacing === "environment"}
+            >
+              Back
+            </button>
+          </div>
+        )}
       </div>
       <input
         ref={fileInputRef}
@@ -497,7 +529,7 @@ export function Wavefield({
         style={{
           position: "absolute",
           bottom: 6,
-          left: 8,
+          right: 8,
           fontSize: 10,
           letterSpacing: "0.04em",
           opacity: 0.55,

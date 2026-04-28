@@ -260,18 +260,68 @@ input {
   letter-spacing: 0.2em;
   background: var(--ink);
   color: var(--bg);
-  padding: 3px 7px;
+  padding: 4px 8px;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  /* Subtle hint that this is interactive. */
+  outline-offset: 2px;
 }
 
-/* Material picker (Wavefield/Mesh view) — three circular swatches. */
+.badge-uncal:hover {
+  filter: brightness(0.9);
+}
+
+.badge-uncal.active {
+  outline: 2px solid var(--ink);
+}
+
+/* Popover that drops down from the APPROX badge with the calibration input. */
+.cal-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 12px;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--bg);
+  border: 1px solid var(--ink);
+  padding: 12px 14px;
+  z-index: 50;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-popover-title {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.cal-popover .cal-input {
+  align-self: flex-start;
+}
+
+.cal-popover-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+/* Material picker (Wavefield/Mesh view) — circular swatches. Above all
+   visualisation chrome (axis labels, dB ticks). Top offset leaves room for
+   the fullscreen button which sits at top-right of the same area. */
 .material-menu {
   position: absolute;
-  top: 12px;
+  top: 56px;
   right: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 5;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .material-circle {
@@ -329,6 +379,41 @@ input {
 
 .material-circle.camera svg {
   display: block;
+}
+
+/* Front / Back camera selector — appears below the material picker only
+   when camera mode is active. Mirrors the segmented-control look used
+   elsewhere in the app. */
+.camera-facing-toggle {
+  display: flex;
+  border: 1px solid var(--ink);
+  background: var(--bg);
+  margin-top: 2px;
+  width: 36px; /* matches material-circle width so the column stays tidy */
+  flex-direction: column;
+}
+
+.camera-facing-toggle button {
+  background: transparent;
+  border: 0;
+  height: 26px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.camera-facing-toggle button + button {
+  border-top: 1px solid var(--ink);
+}
+
+.camera-facing-toggle button.active {
+  background: var(--ink);
+  color: var(--bg);
 }
 
 .material-circle.texture svg,
@@ -583,6 +668,101 @@ input {
   padding: 0 12px;
   height: 44px;
   width: 140px;
+}
+
+/* Visualisation area — wraps the active view. The Start/Stop button now
+   lives in the header next to the mode select, so this is just a flex
+   container holding whichever visualisation is active. */
+.viz-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CSS fallback for when requestFullscreen() isn't supported on arbitrary
+   elements (notably iOS Safari). When the native API works, browsers add
+   :fullscreen on the element directly — the rules below apply to both. */
+.viz-area.fullscreen,
+.viz-area:fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Fullscreen toggle — top-right corner of the visualisation area. */
+.viz-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 40;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 100ms ease;
+}
+
+.viz-fullscreen-btn:hover {
+  transform: scale(1.06);
+}
+
+.viz-fullscreen-btn svg {
+  display: block;
+}
+
+/* Mode select (Meter / Tuner) — replaces the segmented control to save
+   horizontal space, especially on phones. */
+.mode-select {
+  height: 36px;
+  min-width: 96px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--ink);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* Inline SVG chevron — uses currentColor so it flips with theme. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+
+:root[data-theme="dark"] .mode-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5l5 5 5-5'/></svg>");
+}
+
+.mode-select:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* Header Start/Stop — sized to match the mode select sitting next to it. */
+.header-start {
+  height: 36px;
+  min-width: 96px;
+  padding: 0 14px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
 }
 
 .cal-input input {

@@ -7,7 +7,6 @@ interface Props {
   sampleRate: number;
   fftSize: number;
   calibrationDb: number;
-  peakResetToken: number;
   theme: "light" | "dark";
 }
 
@@ -30,7 +29,6 @@ export function SpectrumView({
   sampleRate,
   fftSize,
   calibrationDb,
-  peakResetToken,
   theme,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,12 +45,6 @@ export function SpectrumView({
   const peaksRef = useRef<{ db: Float32Array; holdUntil: Float64Array } | null>(
     null,
   );
-
-  useEffect(() => {
-    if (!peaksRef.current) return;
-    peaksRef.current.db.fill(-Infinity);
-    peaksRef.current.holdUntil.fill(0);
-  }, [peakResetToken]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

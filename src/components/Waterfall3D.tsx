@@ -196,14 +196,16 @@ export function Waterfall3D({
       }
 
       // Per-row amplitude scale: each row's curve climbs from baseline (0 dB)
-      // up to maxRowH at TOP_DB SPL. Annotate at the top-left and bottom-left
-      // so the user knows what amplitude any one ridge represents.
+      // up to maxRowH at TOP_DB SPL. Top label stays top-left; bottom label
+      // moves to bottom-right so the Start/Stop button (bottom-left overlay)
+      // has clean space.
       ctx.font = `${10 * dpr}px system-ui, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillText(`${TOP_DB} dB SPL`, 6 * dpr, 4 * dpr);
+      ctx.textAlign = "right";
       ctx.textBaseline = "bottom";
-      ctx.fillText(`${FLOOR_DB} dB SPL`, 6 * dpr, h - 18 * dpr);
+      ctx.fillText(`${FLOOR_DB} dB SPL`, w - 6 * dpr, h - 6 * dpr);
 
       raf = requestAnimationFrame(tick);
     };
