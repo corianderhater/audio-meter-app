@@ -1,6 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { aggregateToBands, buildBands } from "../audio/bands";
 import { getAWeightingOffsets } from "../audio/aWeighting";
+import {
+  bandFromFreq,
+  freqAtNormalized,
+  ProbePin,
+  type ProbeData,
+} from "./ProbeTooltip";
 
 interface Props {
   analyser: AnalyserNode;
@@ -41,6 +53,17 @@ export function Waterfall3D({
     () => getAWeightingOffsets(sampleRate, fftSize),
     [sampleRate, fftSize],
   );
+
+  // Probe — uses current band data (not the historical row at the touched
+  // y) since the live SPL is what callers asked for.
+  const [probe, setProbe] = useState<ProbeData | null>(null);
+  const probeDbRef = useRef<HTMLDivElement>(null);
+  // Ref-mirrored band index so pinning doesn't restart the render loop
+  // (which would clear the ridge history buffer).
+  const probeBandRef = useRef<number | null>(null);
+  useEffect(() => {
+    probeBandRef.current = probe ? probe.bandIndex : null;
+  }, [probe]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,6 +230,15 @@ export function Waterfall3D({
       ctx.textBaseline = "bottom";
       ctx.fillText(`${FLOOR_DB} dB SPL`, w - 6 * dpr, h - 6 * dpr);
 
+      // Probe SPL update via ref.
+      const pb = probeBandRef.current;
+      if (pb != null && probeDbRef.current) {
+        const v = bandDb[pb] + calRef.current;
+        probeDbRef.current.textContent = Number.isFinite(v)
+          ? `${v.toFixed(1)} dB SPL`
+          : "— dB SPL";
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -217,5 +249,38 @@ export function Waterfall3D({
     };
   }, [analyser, fftSize, layout, weights, theme]);
 
-  return <canvas className="spectrum" ref={canvasRef} />;
+  // Pointer handler. The plot uses padX = 12 CSS px on each side; data
+  // spans (rect.width - 2 * padX). Map to log-scaled frequency.
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const wrap = e.currentTarget;
+    const rect = wrap.getBoundingClientRect();
+    const padXCss = 12;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < padXCss || x > rect.width - padXCss) {
+      setProbe(null);
+      return;
+    }
+    const t = (x - padXCss) / (rect.width - padXCss * 2);
+    const freqHz = freqAtNormalized(t);
+    const bandIndex = bandFromFreq(freqHz, layout.edges);
+    if (bandIndex < 0) {
+      setProbe(null);
+      return;
+    }
+    setProbe({ cssX: x, cssY: y, freqHz, bandIndex });
+  };
+
+  return (
+    <div className="spectrum probe-host" onPointerDown={handlePointerDown}>
+      <canvas className="vis-canvas" ref={canvasRef} />
+      {probe && (
+        <ProbePin
+          data={probe}
+          dbRef={probeDbRef}
+          onDismiss={() => setProbe(null)}
+        />
+      )}
+    </div>
+  );
 }

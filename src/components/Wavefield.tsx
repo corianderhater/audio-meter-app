@@ -4,11 +4,13 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { aggregateToBands, buildBands } from "../audio/bands";
 import { getAWeightingOffsets } from "../audio/aWeighting";
+import { ProbePin, type ProbeData } from "./ProbeTooltip";
 
 interface Props {
   analyser: AnalyserNode;
@@ -49,6 +51,24 @@ export function Wavefield({
   const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
     "environment",
   );
+
+  // Probe — raycasts against the deformed mesh and reports (freq, dB SPL)
+  // at the touched surface point. Refs let the rAF loop write the live SPL
+  // value without re-rendering React.
+  const [probe, setProbe] = useState<ProbeData | null>(null);
+  const probeDbRef = useRef<HTMLDivElement>(null);
+  const probePinRef = useRef<HTMLDivElement>(null);
+  // Probe state shared with the rAF loop (band index + row of the picked
+  // vertex) so we can read live amplitude from the heightmap each frame.
+  const probeCellRef = useRef<{ band: number; row: number } | null>(null);
+  // Imperative pick function set by the effect — exposes Three.js raycaster
+  // + camera + mesh to the React handler outside the effect.
+  const pickRef = useRef<
+    | ((cssX: number, cssY: number) =>
+        | { band: number; row: number; freqHz: number }
+        | null)
+    | null
+  >(null);
 
   const layout = useMemo(
     () => buildBands(sampleRate, fftSize, BANDS),
@@ -286,6 +306,34 @@ export function Wavefield({
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
+    // ─── raycaster pick ─────────────────────────────────────────────
+    // Imperative picker — React handler outside this effect calls
+    // pickRef.current(cssX, cssY) to map a tap to a (band, row).
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const tmpProbeVec = new THREE.Vector3();
+    pickRef.current = (cssX, cssY) => {
+      const rect = container.getBoundingClientRect();
+      ndc.x = (cssX / rect.width) * 2 - 1;
+      ndc.y = -((cssY / rect.height) * 2 - 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(mesh, false);
+      if (hits.length === 0) return null;
+      const uv = hits[0].uv;
+      if (!uv) return null;
+      // PlaneGeometry UVs: u = 0 (left edge) → 1 (right edge).
+      // After rotateX(-π/2), u still maps left/right (band axis).
+      // v = 0 (back of plane) → 1 (front, +Z, newest data).
+      const band = Math.min(BANDS - 1, Math.max(0, Math.floor(uv.x * BANDS)));
+      const row = Math.min(
+        ROWS - 1,
+        Math.max(0, Math.floor((1 - uv.y) * ROWS)),
+      );
+      // Frequency: use the log-band layout's centre for this band.
+      const freqHz = layout.centers[band];
+      return { band, row, freqHz };
+    };
+
     // ─── data + animation ───────────────────────────────────────────
     const freq = new Float32Array(fftSize / 2);
     const bandDb = new Float32Array(BANDS);
@@ -376,6 +424,38 @@ export function Wavefield({
       }
 
       if (didShift) writeHeightsToMesh();
+
+      // Live-update probe: SPL number, AND pin the dot to the picked
+      // vertex's current world position projected back to screen pixels.
+      const cell = probeCellRef.current;
+      if (cell && probeDbRef.current) {
+        const h = heights[cell.row * BANDS + cell.band];
+        const t = h / MAX_HEIGHT;
+        const v = FLOOR_DB + t * (TOP_DB - FLOOR_DB);
+        probeDbRef.current.textContent = Number.isFinite(v)
+          ? `${v.toFixed(1)} dB SPL`
+          : "— dB SPL";
+
+        if (probePinRef.current) {
+          // PlaneGeometry vertex layout: idx = row * BANDS + band.
+          const idx = cell.row * BANDS + cell.band;
+          const i3 = idx * 3;
+          const arr = positionAttr.array as Float32Array;
+          tmpProbeVec.set(arr[i3], arr[i3 + 1], arr[i3 + 2]);
+          tmpProbeVec.project(camera);
+          const rect = container.getBoundingClientRect();
+          const cssX = ((tmpProbeVec.x + 1) * 0.5) * rect.width;
+          const cssY = (1 - (tmpProbeVec.y + 1) * 0.5) * rect.height;
+          probePinRef.current.style.left = `${cssX}px`;
+          probePinRef.current.style.top = `${cssY}px`;
+          // Hide if behind the camera or way off-screen.
+          probePinRef.current.style.visibility =
+            tmpProbeVec.z > 1 || tmpProbeVec.z < -1
+              ? "hidden"
+              : "visible";
+        }
+      }
+
       controls.update();
       renderer.render(scene, camera);
       raf = requestAnimationFrame(tick);
@@ -384,6 +464,7 @@ export function Wavefield({
 
     return () => {
       cancelled = true;
+      pickRef.current = null;
       cancelAnimationFrame(raf);
       ro.disconnect();
       controls.dispose();
@@ -415,8 +496,65 @@ export function Wavefield({
     cameraFacing,
   ]);
 
+  // Tap vs drag: a tap pins the probe at the hit point; a drag (movement
+  // > 6 CSS px while the pointer is down) is for OrbitControls rotation
+  // and must NOT re-pin or clear the probe. We only commit on pointerup
+  // when no movement was detected.
+  const dragStateRef = useRef<{
+    x: number;
+    y: number;
+    pointerId: number;
+    isDrag: boolean;
+  } | null>(null);
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // Only track presses on the WebGL canvas — leave material picker,
+    // close button, etc. to their own handlers.
+    const target = e.target as HTMLElement;
+    if (target.tagName !== "CANVAS") return;
+    dragStateRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      pointerId: e.pointerId,
+      isDrag: false,
+    };
+  };
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = dragStateRef.current;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    const dx = e.clientX - ds.x;
+    const dy = e.clientY - ds.y;
+    if (dx * dx + dy * dy > 36) ds.isDrag = true;
+  };
+
+  const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = dragStateRef.current;
+    dragStateRef.current = null;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    if (ds.isDrag) return; // camera rotated, leave probe alone
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const pick = pickRef.current?.(x, y);
+    if (!pick) {
+      setProbe(null);
+      probeCellRef.current = null;
+      return;
+    }
+    probeCellRef.current = { band: pick.band, row: pick.row };
+    setProbe({ cssX: x, cssY: y, freqHz: pick.freqHz, bandIndex: pick.band });
+  };
+
   return (
-    <div className="spectrum wavefield" style={{ position: "relative" }}>
+    <div
+      className="spectrum wavefield"
+      style={{ position: "relative" }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
 
       {/* Material picker — three circular swatches in the top-right. */}
@@ -538,6 +676,18 @@ export function Wavefield({
       >
         0 dB SPL
       </span>
+
+      {probe && (
+        <ProbePin
+          data={probe}
+          pinRef={probePinRef}
+          dbRef={probeDbRef}
+          onDismiss={() => {
+            setProbe(null);
+            probeCellRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,11 +4,13 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { aggregateToBands, buildBands } from "../audio/bands";
 import { getAWeightingOffsets } from "../audio/aWeighting";
+import { ProbePin, type ProbeData } from "./ProbeTooltip";
 
 interface Props {
   analyser: AnalyserNode;
@@ -49,6 +51,18 @@ export function Globe({
   const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
     "environment",
   );
+
+  // Probe — same pattern as Wavefield.
+  const [probe, setProbe] = useState<ProbeData | null>(null);
+  const probeDbRef = useRef<HTMLDivElement>(null);
+  const probePinRef = useRef<HTMLDivElement>(null);
+  const probeCellRef = useRef<{ band: number; row: number } | null>(null);
+  const pickRef = useRef<
+    | ((cssX: number, cssY: number) =>
+        | { band: number; row: number; freqHz: number }
+        | null)
+    | null
+  >(null);
 
   const layout = useMemo(
     () => buildBands(sampleRate, fftSize, BANDS),
@@ -287,6 +301,31 @@ export function Globe({
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
+    // ─── raycaster pick ─────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const tmpProbeVec = new THREE.Vector3();
+    pickRef.current = (cssX, cssY) => {
+      const rect = container.getBoundingClientRect();
+      ndc.x = (cssX / rect.width) * 2 - 1;
+      ndc.y = -((cssY / rect.height) * 2 - 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(mesh, false);
+      if (hits.length === 0) return null;
+      const uv = hits[0].uv;
+      if (!uv) return null;
+      // SphereGeometry UVs: u = 0..1 around the equator (longitude),
+      // v = 0 (south pole) → 1 (north pole). Our mapping puts newest at
+      // top (north), so v=1 → row 0, v=0 → row ROWS-1.
+      const band = Math.min(BANDS - 1, Math.max(0, Math.floor(uv.x * BANDS)));
+      const row = Math.min(
+        ROWS - 1,
+        Math.max(0, Math.floor((1 - uv.y) * ROWS)),
+      );
+      const freqHz = layout.centers[band];
+      return { band, row, freqHz };
+    };
+
     // ─── data + animation ───────────────────────────────────────────
     const freq = new Float32Array(fftSize / 2);
     const bandDb = new Float32Array(BANDS);
@@ -391,6 +430,48 @@ export function Globe({
       }
 
       if (didShift) writeHeightsToMesh();
+
+      // Live-update probe SPL + pin the dot to the deformed vertex's
+      // projected screen position so it stays glued to the surface as the
+      // sphere rotates.
+      const cell = probeCellRef.current;
+      if (cell && probeDbRef.current) {
+        const t = heights[cell.row * BANDS + cell.band];
+        const v = FLOOR_DB + t * (TOP_DB - FLOOR_DB);
+        probeDbRef.current.textContent = Number.isFinite(v)
+          ? `${v.toFixed(1)} dB SPL`
+          : "— dB SPL";
+
+        if (probePinRef.current) {
+          // SphereGeometry stride = (BANDS + 1). Use band index for the
+          // first column copy (vertex at the seam mirrors band 0).
+          const stride = BANDS + 1;
+          const idx = cell.row * stride + cell.band;
+          const i3 = idx * 3;
+          tmpProbeVec.set(
+            positionArray[i3],
+            positionArray[i3 + 1],
+            positionArray[i3 + 2],
+          );
+          // Hide when the surface point is on the FAR side of the sphere
+          // (camera vector and surface normal pointing apart).
+          const camDir = camera.position.clone().sub(tmpProbeVec).normalize();
+          const surfNormal = tmpProbeVec.clone().normalize();
+          const facingCamera = camDir.dot(surfNormal) > 0;
+
+          tmpProbeVec.project(camera);
+          const rect = container.getBoundingClientRect();
+          const cssX = ((tmpProbeVec.x + 1) * 0.5) * rect.width;
+          const cssY = (1 - (tmpProbeVec.y + 1) * 0.5) * rect.height;
+          probePinRef.current.style.left = `${cssX}px`;
+          probePinRef.current.style.top = `${cssY}px`;
+          probePinRef.current.style.visibility =
+            !facingCamera || tmpProbeVec.z > 1 || tmpProbeVec.z < -1
+              ? "hidden"
+              : "visible";
+        }
+      }
+
       controls.update();
       renderer.render(scene, camera);
       raf = requestAnimationFrame(tick);
@@ -399,6 +480,7 @@ export function Globe({
 
     return () => {
       cancelled = true;
+      pickRef.current = null;
       cancelAnimationFrame(raf);
       ro.disconnect();
       controls.removeEventListener("start", onUserInteract);
@@ -425,8 +507,61 @@ export function Globe({
     };
   }, [analyser, fftSize, layout, weights, theme, materialMode, textureUrl, cameraFacing]);
 
+  // Tap vs drag — same logic as Wavefield. Drag rotates the globe via
+  // OrbitControls and must not touch the probe.
+  const dragStateRef = useRef<{
+    x: number;
+    y: number;
+    pointerId: number;
+    isDrag: boolean;
+  } | null>(null);
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== "CANVAS") return;
+    dragStateRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      pointerId: e.pointerId,
+      isDrag: false,
+    };
+  };
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = dragStateRef.current;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    const dx = e.clientX - ds.x;
+    const dy = e.clientY - ds.y;
+    if (dx * dx + dy * dy > 36) ds.isDrag = true;
+  };
+
+  const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = dragStateRef.current;
+    dragStateRef.current = null;
+    if (!ds || ds.pointerId !== e.pointerId) return;
+    if (ds.isDrag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const pick = pickRef.current?.(x, y);
+    if (!pick) {
+      setProbe(null);
+      probeCellRef.current = null;
+      return;
+    }
+    probeCellRef.current = { band: pick.band, row: pick.row };
+    setProbe({ cssX: x, cssY: y, freqHz: pick.freqHz, bandIndex: pick.band });
+  };
+
   return (
-    <div className="spectrum wavefield" style={{ position: "relative" }}>
+    <div
+      className="spectrum wavefield"
+      style={{ position: "relative" }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
 
       <div className="material-menu">
@@ -547,6 +682,18 @@ export function Globe({
       >
         0 dB SPL
       </span>
+
+      {probe && (
+        <ProbePin
+          data={probe}
+          pinRef={probePinRef}
+          dbRef={probeDbRef}
+          onDismiss={() => {
+            setProbe(null);
+            probeCellRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

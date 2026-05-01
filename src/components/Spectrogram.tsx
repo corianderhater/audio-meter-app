@@ -1,6 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { aggregateToBands, buildBands } from "../audio/bands";
 import { getAWeightingOffsets } from "../audio/aWeighting";
+import {
+  bandFromFreq,
+  freqAtNormalized,
+  ProbePin,
+  type ProbeData,
+} from "./ProbeTooltip";
 
 interface Props {
   analyser: AnalyserNode;
@@ -68,6 +80,17 @@ export function Spectrogram({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const calRef = useRef(calibrationDb);
   calRef.current = calibrationDb;
+
+  // Probe — same pattern as SpectrumView. SPL is "current at this freq",
+  // not the historical value of the touched pixel-row, since we don't keep
+  // the raw band values in a separate history buffer here.
+  const [probe, setProbe] = useState<ProbeData | null>(null);
+  const probeDbRef = useRef<HTMLDivElement>(null);
+  // Ref-mirrored band index so the rAF tick can read it without restart.
+  const probeBandRef = useRef<number | null>(null);
+  useEffect(() => {
+    probeBandRef.current = probe ? probe.bandIndex : null;
+  }, [probe]);
 
   const layout = useMemo(
     () => buildBands(sampleRate, fftSize, BANDS),
@@ -197,6 +220,16 @@ export function Spectrogram({
         ctx.fillText(label, Math.min(w - 28 * dpr, Math.max(padLeft + 2, x + 2)), 2);
       }
 
+      // Probe SPL update via ref (not a dep — pinning shouldn't restart
+      // the render loop, which would scroll history away).
+      const pb = probeBandRef.current;
+      if (pb != null && probeDbRef.current) {
+        const v = bandDb[pb] + calRef.current;
+        probeDbRef.current.textContent = Number.isFinite(v)
+          ? `${v.toFixed(1)} dB SPL`
+          : "— dB SPL";
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -207,5 +240,36 @@ export function Spectrogram({
     };
   }, [analyser, fftSize, layout, weights, theme]);
 
-  return <canvas className="spectrogram" ref={canvasRef} />;
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const wrap = e.currentTarget;
+    const rect = wrap.getBoundingClientRect();
+    const padLeftCss = 36;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < padLeftCss || x > rect.width - 4) {
+      setProbe(null);
+      return;
+    }
+    const t = (x - padLeftCss) / (rect.width - padLeftCss);
+    const freqHz = freqAtNormalized(t);
+    const bandIndex = bandFromFreq(freqHz, layout.edges);
+    if (bandIndex < 0) {
+      setProbe(null);
+      return;
+    }
+    setProbe({ cssX: x, cssY: y, freqHz, bandIndex });
+  };
+
+  return (
+    <div className="spectrogram probe-host" onPointerDown={handlePointerDown}>
+      <canvas className="vis-canvas" ref={canvasRef} />
+      {probe && (
+        <ProbePin
+          data={probe}
+          dbRef={probeDbRef}
+          onDismiss={() => setProbe(null)}
+        />
+      )}
+    </div>
+  );
 }

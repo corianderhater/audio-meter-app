@@ -1,6 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { aggregateToBands, buildBands } from "../audio/bands";
 import { getAWeightingOffsets } from "../audio/aWeighting";
+import {
+  bandFromFreq,
+  freqAtNormalized,
+  ProbePin,
+  type ProbeData,
+} from "./ProbeTooltip";
 
 interface Props {
   analyser: AnalyserNode;
@@ -45,6 +57,21 @@ export function SpectrumView({
   const peaksRef = useRef<{ db: Float32Array; holdUntil: Float64Array } | null>(
     null,
   );
+
+  // Probe state — tap-to-pin tooltip. Lives in CSS-px coords inside the
+  // wrapper div. The dB readout updates live every frame via dbRef so the
+  // pin's value tracks the audio without re-rendering React.
+  const [probe, setProbe] = useState<ProbeData | null>(null);
+  const probeDbRef = useRef<HTMLDivElement>(null);
+  // Mirror probe.bandIndex into a ref so the rAF closure can read the
+  // current value WITHOUT being a dep of the main effect (which would
+  // tear down + restart the render loop on every tap).
+  const probeBandRef = useRef<number | null>(null);
+  useEffect(() => {
+    probeBandRef.current = probe ? probe.bandIndex : null;
+  }, [probe]);
+  const calRef = useRef<number>(calibrationDb);
+  calRef.current = calibrationDb;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -176,6 +203,17 @@ export function SpectrumView({
         );
       }
 
+      // Update probe live SPL readout (if pinned). probeBandRef avoids
+      // making the probe a useEffect dep — keeps the loop running across
+      // pin/unpin without restart.
+      const pb = probeBandRef.current;
+      if (pb != null && probeDbRef.current) {
+        const v = bandDb[pb] + calRef.current;
+        probeDbRef.current.textContent = Number.isFinite(v)
+          ? `${v.toFixed(1)} dB SPL`
+          : "— dB SPL";
+      }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -186,5 +224,38 @@ export function SpectrumView({
     };
   }, [analyser, fftSize, layout, weights, calibrationDb, theme]);
 
-  return <canvas className="spectrum" ref={canvasRef} />;
+  // Tap-to-pin handler. Maps the tap's CSS-pixel x into the canvas's plot
+  // area (right of the dB axis labels), looks up the band, sets the probe.
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const wrap = e.currentTarget;
+    const rect = wrap.getBoundingClientRect();
+    const padLeftCss = 36; // matches `padLeft = 36 * dpr` in canvas px
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (x < padLeftCss || x > rect.width - 4) {
+      setProbe(null);
+      return;
+    }
+    const t = (x - padLeftCss) / (rect.width - padLeftCss);
+    const freqHz = freqAtNormalized(t);
+    const bandIndex = bandFromFreq(freqHz, layout.edges);
+    if (bandIndex < 0) {
+      setProbe(null);
+      return;
+    }
+    setProbe({ cssX: x, cssY: y, freqHz, bandIndex });
+  };
+
+  return (
+    <div className="spectrum probe-host" onPointerDown={handlePointerDown}>
+      <canvas className="vis-canvas" ref={canvasRef} />
+      {probe && (
+        <ProbePin
+          data={probe}
+          dbRef={probeDbRef}
+          onDismiss={() => setProbe(null)}
+        />
+      )}
+    </div>
+  );
 }
