@@ -1,6 +1,8 @@
 interface Props {
-  view: "spectrum" | "spectrogram" | "ridges" | "mesh";
-  onViewChange: (v: "spectrum" | "spectrogram" | "ridges" | "mesh") => void;
+  view: "spectrum" | "spectrogram" | "ridges" | "mesh" | "globe";
+  onViewChange: (
+    v: "spectrum" | "spectrogram" | "ridges" | "mesh" | "globe",
+  ) => void;
 }
 
 export function Controls({ view, onViewChange }: Props) {
@@ -31,6 +33,12 @@ export function Controls({ view, onViewChange }: Props) {
             onClick={() => onViewChange("mesh")}
           >
             Mesh
+          </button>
+          <button
+            className={view === "globe" ? "active" : ""}
+            onClick={() => onViewChange("globe")}
+          >
+            Globe
           </button>
         </div>
       </div>

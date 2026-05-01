@@ -10,10 +10,15 @@ import { BpmDisplay } from "./components/BpmDisplay";
 import { KeyDisplay } from "./components/KeyDisplay";
 import { Tuner } from "./components/Tuner";
 
-// Wavefield pulls in three.js (~500 KB unminified). Lazy-load it so the
-// initial bundle stays small for users who never open the Mesh view.
+// Wavefield + Globe pull in three.js (~500 KB unminified). Lazy-load both
+// so the initial bundle stays small for users who never open a 3D view.
+// They share the same `three` vendor chunk, so the second one to load only
+// costs its own component code.
 const Wavefield = lazy(() =>
   import("./components/Wavefield").then((m) => ({ default: m.Wavefield })),
+);
+const Globe = lazy(() =>
+  import("./components/Globe").then((m) => ({ default: m.Globe })),
 );
 
 const CAL_KEY = "audioMeter.calibrationDb";
@@ -28,7 +33,7 @@ const MODE_KEY = "audioMeter.mode";
 const DEFAULT_CALIBRATION_DB = 125;
 
 type Mode = "meter" | "tuner";
-type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh";
+type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh" | "globe";
 
 function loadCalibration(): number {
   try {
@@ -257,6 +262,23 @@ export function App() {
               }
             >
               <Wavefield
+                analyser={audio.analyser}
+                sampleRate={audio.sampleRate}
+                fftSize={audio.fftSize}
+                calibrationDb={calibrationDb}
+                theme={theme}
+              />
+            </Suspense>
+          )}
+          {running && audio.analyser && mode === "meter" && view === "globe" && (
+            <Suspense
+              fallback={
+                <div className="placeholder">
+                  <p>Loading 3D…</p>
+                </div>
+              }
+            >
+              <Globe
                 analyser={audio.analyser}
                 sampleRate={audio.sampleRate}
                 fftSize={audio.fftSize}
