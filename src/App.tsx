@@ -146,9 +146,9 @@ export function App() {
   }, [audio.status]);
 
   const running = audio.status === "running" && audio.analyser != null;
-  const title = mode === "tuner" ? "Tuner" : "Audio Meter";
+  const title = mode === "tuner" ? "tuner" : "audio meter";
   const subtitle =
-    mode === "tuner" ? "Chromatic · A4 = 440 Hz" : "20 Hz – 20 kHz";
+    mode === "tuner" ? "chromatic · a4 = 440 hz" : "20 hz – 20 khz";
 
   return (
     <div className="app">
@@ -164,7 +164,7 @@ export function App() {
             disabled={audio.status === "starting"}
             aria-label={running ? "Stop measuring" : "Start measuring"}
           >
-            {audio.status === "starting" ? "…" : running ? "Stop" : "Start"}
+            {audio.status === "starting" ? "…" : running ? "stop" : "start"}
           </button>
           <select
             className="mode-select"
@@ -172,8 +172,8 @@ export function App() {
             onChange={(e) => setMode(e.target.value as Mode)}
             aria-label="Mode"
           >
-            <option value="meter">Meter</option>
-            <option value="tuner">Tuner</option>
+            <option value="meter">meter</option>
+            <option value="tuner">tuner</option>
           </select>
           <button
             className="theme-toggle"

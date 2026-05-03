@@ -79,14 +79,14 @@ input {
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.01em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .badge-range {
   font-size: 10px;
   color: var(--ink-muted);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .mode-switch {
@@ -104,7 +104,7 @@ input {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .mode-switch button + button {
@@ -220,7 +220,7 @@ input {
   font-size: 11px;
   color: var(--ink-muted);
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .loudness-peak {
@@ -229,7 +229,7 @@ input {
   font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .loudness-bar {
@@ -306,7 +306,7 @@ input {
 .cal-popover-title {
   font-size: 10px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: 700;
 }
 
@@ -413,7 +413,7 @@ input {
   font-size: 9px;
   letter-spacing: 0.12em;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink);
   cursor: pointer;
 }
@@ -450,7 +450,7 @@ input {
 .cal-notice strong {
   font-size: 11px;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: 700;
 }
 
@@ -495,7 +495,7 @@ input {
   font-size: 11px;
   color: var(--ink-muted);
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .bpm-conf,
@@ -549,7 +549,7 @@ input {
   color: var(--ink-muted);
   letter-spacing: 0.16em;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: lowercase;
   min-height: 14px;
 }
 
@@ -607,7 +607,7 @@ input {
   color: var(--ink);
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-size: 12px;
   cursor: pointer;
   border-radius: 0;
@@ -622,6 +622,35 @@ input {
   background: var(--ink);
   color: var(--bg);
   min-width: 110px;
+}
+
+/* Neon glow on the Start button while idle. Gentle, smooth — no pulsing
+   intensity change; the hue rotates slowly through the rainbow via a
+   registered custom property so colours interpolate continuously instead
+   of through grey. As soon as `running` flips, the .stop modifier replaces
+   this with the plain white state. */
+@property --glow-hue {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
+
+.btn.primary.header-start:not(.stop):not(:disabled) {
+  --glow-hue: 0;
+  background: var(--ink);
+  color: hsl(var(--glow-hue) 80% 94%);
+  text-shadow: 0 0 5px hsl(var(--glow-hue) 95% 70% / 0.7);
+  box-shadow:
+    0 0 32px hsl(var(--glow-hue) 95% 65% / 0.75),
+    0 0 80px hsl(var(--glow-hue) 95% 65% / 0.5),
+    0 0 140px hsl(var(--glow-hue) 95% 65% / 0.3);
+  animation: header-start-rainbow 8s linear infinite;
+}
+
+@keyframes header-start-rainbow {
+  to {
+    --glow-hue: 360;
+  }
 }
 
 .btn.primary.stop {
@@ -644,7 +673,7 @@ input {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .seg button + button {
@@ -667,7 +696,7 @@ input {
   font-size: 10px;
   color: var(--ink-muted);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .cal-input {
@@ -836,7 +865,7 @@ input {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -868,7 +897,7 @@ input {
 .view-picker-label {
   font-size: 10px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-muted);
   font-weight: 700;
 }
@@ -884,7 +913,7 @@ input {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -925,7 +954,7 @@ input {
   color: var(--ink-muted);
   font-size: 11px;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .cal-hint {
@@ -1007,7 +1036,7 @@ input {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
   min-height: 22px;
@@ -1081,7 +1110,7 @@ input {
   align-items: baseline;
   font-size: 11px;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-muted);
 }
 

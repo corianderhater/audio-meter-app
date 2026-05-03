@@ -13,7 +13,8 @@
       "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.nature.com)",
-      "WebFetch(domain:pubs.asha.org)"
+      "WebFetch(domain:pubs.asha.org)",
+      "Bash(powershell -Command \"\\(Get-Content src/styles.css\\) -replace 'text-transform: uppercase;', 'text-transform: lowercase;' | Set-Content src/styles.css\")"
     ]
   }
 }
