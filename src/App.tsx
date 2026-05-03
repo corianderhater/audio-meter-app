@@ -35,12 +35,20 @@ const DEFAULT_CALIBRATION_DB = 125;
 type Mode = "meter" | "tuner";
 type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh" | "globe";
 
+// Previous build shipped 120 as the default; we now use 125. Treat any
+// stored value that exactly matches the OLD default as "unchanged from
+// default" and migrate it forward, so returning users see the new initial
+// value. Anyone who explicitly customised (any other value) keeps theirs.
+const PREVIOUS_DEFAULT_CALIBRATION_DB = 120;
+
 function loadCalibration(): number {
   try {
     const v = localStorage.getItem(CAL_KEY);
     if (v == null) return DEFAULT_CALIBRATION_DB;
     const n = Number(v);
-    return Number.isFinite(n) ? n : DEFAULT_CALIBRATION_DB;
+    if (!Number.isFinite(n)) return DEFAULT_CALIBRATION_DB;
+    if (n === PREVIOUS_DEFAULT_CALIBRATION_DB) return DEFAULT_CALIBRATION_DB;
+    return n;
   } catch {
     return DEFAULT_CALIBRATION_DB;
   }
