@@ -9,6 +9,11 @@ import { Waterfall3D } from "./components/Waterfall3D";
 import { BpmDisplay } from "./components/BpmDisplay";
 import { KeyDisplay } from "./components/KeyDisplay";
 import { Tuner } from "./components/Tuner";
+import { Metronome } from "./components/Metronome";
+import { SoundGenerator } from "./components/SoundGenerator";
+import { NoiseGenerator } from "./components/NoiseGenerator";
+import { WavelengthCalc } from "./components/WavelengthCalc";
+import { SweepGenerator } from "./components/SweepGenerator";
 
 // Wavefield + Globe pull in three.js (~500 KB unminified). Lazy-load both
 // so the initial bundle stays small for users who never open a 3D view.
@@ -32,7 +37,14 @@ const MODE_KEY = "audioMeter.mode";
 // banner below prompts the user to verify against a reference meter.
 const DEFAULT_CALIBRATION_DB = 125;
 
-type Mode = "meter" | "tuner";
+type Mode =
+  | "meter"
+  | "tuner"
+  | "metronome"
+  | "soundgen"
+  | "noise"
+  | "sweep"
+  | "wavelength";
 type ViewMode = "spectrum" | "spectrogram" | "ridges" | "mesh" | "globe";
 
 // Previous build shipped 120 as the default; we now use 125. Treat any
@@ -54,10 +66,20 @@ function loadCalibration(): number {
   }
 }
 
+const VALID_MODES: readonly Mode[] = [
+  "meter",
+  "tuner",
+  "metronome",
+  "soundgen",
+  "noise",
+  "sweep",
+  "wavelength",
+];
+
 function loadMode(): Mode {
   try {
     const v = localStorage.getItem(MODE_KEY);
-    if (v === "tuner" || v === "meter") return v;
+    if (v && (VALID_MODES as readonly string[]).includes(v)) return v as Mode;
   } catch {
     // ignore
   }
@@ -146,9 +168,39 @@ export function App() {
   }, [audio.status]);
 
   const running = audio.status === "running" && audio.analyser != null;
-  const title = mode === "tuner" ? "tuner" : "audio meter";
+  const title =
+    mode === "tuner"
+      ? "tuner"
+      : mode === "metronome"
+        ? "metronome"
+        : mode === "soundgen"
+          ? "sound generator"
+          : mode === "noise"
+            ? "noise"
+            : mode === "sweep"
+              ? "sweep"
+              : mode === "wavelength"
+                ? "wavelength"
+                : "audio meter";
   const subtitle =
-    mode === "tuner" ? "chromatic · a4 = 440 hz" : "20 hz – 20 khz";
+    mode === "tuner"
+      ? "chromatic · a4 = 440 hz"
+      : mode === "metronome"
+        ? "30–300 bpm"
+        : mode === "soundgen"
+          ? "oscillators · sine · noise"
+          : mode === "noise"
+            ? "white · pink · band-pass"
+            : mode === "sweep"
+              ? "sine · log · linear"
+              : mode === "wavelength"
+                ? "λ = c / f"
+                : "20 hz – 20 khz";
+
+  // Mic-using modes show a centered start circle inside the viz area when
+  // not yet running. Other modes have their own internal play controls.
+  const isMicMode = mode === "meter" || mode === "tuner";
+  const showCenterStart = isMicMode && !running;
 
   return (
     <div className="app">
@@ -158,22 +210,31 @@ export function App() {
           <span className="badge-range">{subtitle}</span>
         </div>
         <div className="header-actions">
-          <button
-            className={`btn primary header-start ${running ? "stop" : ""}`}
-            onClick={running ? audio.stop : audio.start}
-            disabled={audio.status === "starting"}
-            aria-label={running ? "Stop measuring" : "Start measuring"}
-          >
-            {audio.status === "starting" ? "…" : running ? "stop" : "start"}
-          </button>
           <select
             className="mode-select"
             value={mode}
-            onChange={(e) => setMode(e.target.value as Mode)}
+            onChange={(e) => {
+              const newMode = e.target.value as Mode;
+              // Stop the mic when leaving a mic-using mode so it doesn't
+              // keep running invisibly during metronome / sound generator.
+              if (
+                newMode !== "meter" &&
+                newMode !== "tuner" &&
+                running
+              ) {
+                audio.stop();
+              }
+              setMode(newMode);
+            }}
             aria-label="Mode"
           >
             <option value="meter">meter</option>
             <option value="tuner">tuner</option>
+            <option value="metronome">metronome</option>
+            <option value="soundgen">sound generator</option>
+            <option value="noise">noise</option>
+            <option value="sweep">sweep</option>
+            <option value="wavelength">wavelength</option>
           </select>
           <button
             className="theme-toggle"
@@ -213,25 +274,19 @@ export function App() {
           className={`viz-area ${vizFullscreen ? "fullscreen" : ""}`}
           ref={vizAreaRef}
         >
-          {!running && (
-            <div className="placeholder">
-              {audio.status === "idle" && (
-                <>
-                  <p>
-                    Tap <strong>Start</strong> to begin{" "}
-                    {mode === "tuner" ? "tuning" : "measuring"}.
-                  </p>
-                  <p className="hint">
-                    You will be asked for microphone access. Audio is processed
-                    on-device only and never leaves your phone.
-                  </p>
-                </>
-              )}
-              {audio.status === "starting" && <p>Starting…</p>}
-              {audio.status === "error" && audio.error && (
-                <p className="error">{audio.error}</p>
-              )}
-            </div>
+          {showCenterStart && (
+            <button
+              type="button"
+              className="viz-start-circle"
+              onClick={audio.start}
+              disabled={audio.status === "starting"}
+              aria-label="Start"
+            >
+              {audio.status === "starting" ? "…" : "start"}
+            </button>
+          )}
+          {!running && isMicMode && audio.status === "error" && audio.error && (
+            <div className="viz-error">{audio.error}</div>
           )}
 
           {running && audio.analyser && mode === "meter" && view === "spectrum" && (
@@ -298,6 +353,11 @@ export function App() {
           {running && audio.analyser && mode === "tuner" && (
             <Tuner analyser={audio.analyser} sampleRate={audio.sampleRate} />
           )}
+          {mode === "metronome" && <Metronome />}
+          {mode === "soundgen" && <SoundGenerator />}
+          {mode === "noise" && <NoiseGenerator />}
+          {mode === "sweep" && <SweepGenerator />}
+          {mode === "wavelength" && <WavelengthCalc />}
 
           <button
             type="button"
