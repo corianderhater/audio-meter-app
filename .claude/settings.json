@@ -14,7 +14,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.nature.com)",
       "WebFetch(domain:pubs.asha.org)",
-      "Bash(powershell -Command \"\\(Get-Content src/styles.css\\) -replace 'text-transform: uppercase;', 'text-transform: lowercase;' | Set-Content src/styles.css\")"
+      "Bash(powershell -Command \"\\(Get-Content src/styles.css\\) -replace 'text-transform: uppercase;', 'text-transform: lowercase;' | Set-Content src/styles.css\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\pawel\\\\Documents\\\\github\\\\audio-meter-app\\\\public\" -Recurse)"
     ]
   }
 }

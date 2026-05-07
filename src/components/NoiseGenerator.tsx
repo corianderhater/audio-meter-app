@@ -8,6 +8,11 @@ import {
   createPinkNoiseBuffer,
   createWhiteNoiseBuffer,
 } from "../audio/noise";
+import {
+  buildNoiseScene,
+  type NoiseScene,
+  type NoiseType,
+} from "../audio/noiseScenes";
 import { formatFreq } from "./ProbeTooltip";
 
 const STORAGE_KEY = "audioMeter.noiseGen";
@@ -20,7 +25,13 @@ const DB_MIN = -40;
 const DB_MAX = 6;
 const RESPONSE_POINTS = 240;
 
-type NoiseType = "white" | "pink";
+const NOISE_TYPES: readonly NoiseType[] = [
+  "white",
+  "pink",
+  "fire",
+  "forest",
+  "water",
+];
 
 interface PersistedState {
   noiseType: NoiseType;
@@ -44,7 +55,9 @@ function loadState(): PersistedState {
     if (!v) return defaultState();
     const p = JSON.parse(v);
     return {
-      noiseType: p?.noiseType === "white" ? "white" : "pink",
+      noiseType: NOISE_TYPES.includes(p?.noiseType)
+        ? (p.noiseType as NoiseType)
+        : "pink",
       hpFreq: clampFreq(p?.hpFreq ?? FREQ_MIN),
       lpFreq: clampFreq(p?.lpFreq ?? FREQ_MAX),
       gain:
@@ -84,7 +97,7 @@ export function NoiseGenerator() {
 
   type AudioBundle = {
     ctx: AudioContext;
-    source: AudioBufferSourceNode;
+    scene: NoiseScene;
     hp: BiquadFilterNode;
     lp: BiquadFilterNode;
     master: GainNode;
@@ -135,27 +148,20 @@ export function NoiseGenerator() {
     a.master.gain.linearRampToValueAtTime(gain, t + 0.05);
   }, [gain]);
 
-  // Swap source on noise-type change while running.
+  // Swap scene on noise-type change while running.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
     if (a.type === noiseType) return;
-    try {
-      a.source.disconnect();
-    } catch {
-      // ignore
-    }
-    try {
-      a.source.stop();
-    } catch {
-      // ignore
-    }
-    const newSrc = a.ctx.createBufferSource();
-    newSrc.buffer = noiseType === "white" ? a.whiteBuffer : a.pinkBuffer;
-    newSrc.loop = true;
-    newSrc.connect(a.hp);
-    newSrc.start();
-    a.source = newSrc;
+    a.scene.stop();
+    const next = buildNoiseScene(
+      a.ctx,
+      noiseType,
+      a.whiteBuffer,
+      a.pinkBuffer,
+    );
+    next.output.connect(a.hp);
+    a.scene = next;
     a.type = noiseType;
   }, [noiseType]);
 
@@ -164,11 +170,7 @@ export function NoiseGenerator() {
     return () => {
       const a = audioRef.current;
       if (!a) return;
-      try {
-        a.source.stop();
-      } catch {
-        // ignore
-      }
+      a.scene.stop();
       a.ctx.close().catch(() => undefined);
       audioRef.current = null;
     };
@@ -183,13 +185,9 @@ export function NoiseGenerator() {
         a.master.gain.setValueAtTime(a.master.gain.value, t);
         a.master.gain.linearRampToValueAtTime(0, t + 0.05);
         const ctxToClose = a.ctx;
-        const src = a.source;
+        const scene = a.scene;
         window.setTimeout(() => {
-          try {
-            src.stop();
-          } catch {
-            // ignore
-          }
+          scene.stop();
           ctxToClose.close().catch(() => undefined);
         }, 80);
         audioRef.current = null;
@@ -210,10 +208,6 @@ export function NoiseGenerator() {
 
       const whiteBuffer = createWhiteNoiseBuffer(ctx, NOISE_LOOP_SEC);
       const pinkBuffer = createPinkNoiseBuffer(ctx, NOISE_LOOP_SEC);
-
-      const source = ctx.createBufferSource();
-      source.buffer = noiseType === "white" ? whiteBuffer : pinkBuffer;
-      source.loop = true;
 
       const hp = ctx.createBiquadFilter();
       hp.type = "highpass";
@@ -236,13 +230,15 @@ export function NoiseGenerator() {
       compressor.attack.setValueAtTime(0.003, ctx.currentTime);
       compressor.release.setValueAtTime(0.25, ctx.currentTime);
 
-      source.connect(hp).connect(lp).connect(master).connect(compressor)
+      hp.connect(lp).connect(master).connect(compressor)
         .connect(ctx.destination);
-      source.start();
+
+      const scene = buildNoiseScene(ctx, noiseType, whiteBuffer, pinkBuffer);
+      scene.output.connect(hp);
 
       audioRef.current = {
         ctx,
-        source,
+        scene,
         hp,
         lp,
         master,
@@ -489,20 +485,16 @@ export function NoiseGenerator() {
       <div className="noise-type-row">
         <span className="noise-type-label">noise:</span>
         <div className="seg noise-type-seg">
-          <button
-            type="button"
-            className={noiseType === "white" ? "active" : ""}
-            onClick={() => setNoiseType("white")}
-          >
-            white
-          </button>
-          <button
-            type="button"
-            className={noiseType === "pink" ? "active" : ""}
-            onClick={() => setNoiseType("pink")}
-          >
-            pink
-          </button>
+          {NOISE_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={noiseType === t ? "active" : ""}
+              onClick={() => setNoiseType(t)}
+            >
+              {t}
+            </button>
+          ))}
         </div>
       </div>
 

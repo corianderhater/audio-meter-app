@@ -168,20 +168,7 @@ export function App() {
   }, [audio.status]);
 
   const running = audio.status === "running" && audio.analyser != null;
-  const title =
-    mode === "tuner"
-      ? "tuner"
-      : mode === "metronome"
-        ? "metronome"
-        : mode === "soundgen"
-          ? "sound generator"
-          : mode === "noise"
-            ? "noise"
-            : mode === "sweep"
-              ? "sweep"
-              : mode === "wavelength"
-                ? "wavelength"
-                : "audio meter";
+  const title = "v1.1";
   const subtitle =
     mode === "tuner"
       ? "chromatic · a4 = 440 hz"
