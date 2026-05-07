@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://corianderhater.github.io/audio-meter-app/sitemap.xml

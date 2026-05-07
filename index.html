@@ -6,18 +6,138 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
     />
+
+    <title>Audio Meter — Free Spectrum Analyzer, SPL Meter, Tuner & Sound Tools (PWA)</title>
+    <meta
+      name="description"
+      content="Free, real-time audio spectrum analyzer and SPL meter that runs in your browser. Installable as a PWA on iPhone and Android, works fully offline. Includes 20 Hz–20 kHz spectrum, A-weighted SPL, waterfall, 3D mesh and globe views, BPM and key detection, chromatic tuner, metronome, sine/noise/sweep generators, and a wavelength calculator. No install, no tracking, no fees."
+    />
+    <meta
+      name="keywords"
+      content="audio meter, spectrum analyzer, spl meter, db meter, decibel meter, online tuner, chromatic tuner, metronome, sine generator, noise generator, sweep generator, pink noise, white noise, wavelength calculator, web audio, pwa, offline, iphone, android, free"
+    />
+    <meta name="author" content="Paweł Unger" />
+    <link rel="canonical" href="https://corianderhater.github.io/audio-meter-app/" />
+
+    <!-- Theme colors are media-aware so installed PWAs get a status bar that
+         matches the user's light/dark preference. -->
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+
+    <!-- iOS standalone install: home-screen title, status-bar style, icons. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Audio Meter" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
-    <title>Audio Meter</title>
+
+    <!-- Open Graph: rich previews when shared on iMessage, Slack, WhatsApp,
+         LinkedIn, Discord, Facebook, etc. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Audio Meter" />
+    <meta property="og:url" content="https://corianderhater.github.io/audio-meter-app/" />
+    <meta property="og:title" content="Audio Meter — Free Spectrum Analyzer, SPL Meter & Sound Tools" />
+    <meta
+      property="og:description"
+      content="Real-time 20 Hz–20 kHz spectrum analyzer and SPL meter in your browser. Installable PWA, fully offline. Tuner, metronome, sine/noise/sweep generators, wavelength calculator. Free."
+    />
+    <meta property="og:image" content="https://corianderhater.github.io/audio-meter-app/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Audio Meter app icon" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X card. -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Audio Meter — Free Spectrum Analyzer, SPL Meter & Sound Tools" />
+    <meta
+      name="twitter:description"
+      content="Real-time 20 Hz–20 kHz spectrum analyzer and SPL meter in your browser. Installable PWA, fully offline. Tuner, metronome, generators, wavelength calculator. Free."
+    />
+    <meta name="twitter:image" content="https://corianderhater.github.io/audio-meter-app/icon-512.png" />
+    <meta name="twitter:image:alt" content="Audio Meter app icon" />
+
+    <!-- Help crawlers find the sitemap. -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/audio-meter-app/sitemap.xml" />
+
+    <!-- Structured data: tells Google this is a free web SoftwareApplication
+         (eligible for richer search-result treatment). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Audio Meter",
+      "alternateName": "AudioMeter",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "AudioApplication",
+      "operatingSystem": "Web (PWA: iOS, Android, Windows, macOS, Linux)",
+      "browserRequirements": "Requires a modern browser with Web Audio API and microphone access.",
+      "url": "https://corianderhater.github.io/audio-meter-app/",
+      "image": "https://corianderhater.github.io/audio-meter-app/icon-512.png",
+      "description": "Real-time audio spectrum analyzer and SPL meter that runs entirely in the browser. Installable as a PWA, works fully offline. Includes A-weighted SPL meter, 20 Hz–20 kHz spectrum, waterfall, 3D mesh and globe visualizations, BPM and key detection, chromatic tuner, metronome, sine/white-noise/pink-noise generators, frequency sweep, and wavelength calculator.",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Real-time 20 Hz to 20 kHz spectrum analyzer",
+        "A-weighted SPL meter with calibration",
+        "Waterfall and 3D mesh / globe visualizations",
+        "BPM detection",
+        "Musical key detection",
+        "Chromatic tuner",
+        "Metronome with custom click recording",
+        "Sine, white-noise, and pink-noise generator",
+        "Linear and logarithmic sweep generator",
+        "Noise generator with band-pass filter",
+        "Wavelength calculator",
+        "Installable as a Progressive Web App",
+        "Fully offline after first load"
+      ],
+      "author": {
+        "@type": "Person",
+        "name": "Paweł Unger"
+      }
+    }
+    </script>
+
     <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "cee0f0ca6c01475d97ea837d28ea0c93"}'></script><!-- End Cloudflare Web Analytics -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static fallback content for crawlers that don't execute JavaScript
+           and for screen readers / users with JS disabled. The React app
+           replaces this on hydration so end users never see it. -->
+      <noscript>
+        <h1>Audio Meter</h1>
+        <p>
+          Free, real-time audio spectrum analyzer and SPL meter that runs in
+          your browser. Installable as a Progressive Web App on iPhone and
+          Android, works fully offline after the first load.
+        </p>
+        <p>
+          This tool requires JavaScript and microphone access. Please enable
+          JavaScript to use the app.
+        </p>
+        <h2>What's included</h2>
+        <ul>
+          <li>Real-time 20 Hz – 20 kHz spectrum analyzer</li>
+          <li>A-weighted SPL meter with adjustable calibration offset</li>
+          <li>Waterfall, 3D mesh and 3D globe visualizations</li>
+          <li>BPM (tempo) detection</li>
+          <li>Musical key detection</li>
+          <li>Chromatic tuner (A4 = 440 Hz)</li>
+          <li>Metronome (30–300 BPM) with custom click recording</li>
+          <li>Sound generator: sine, white noise, pink noise across multiple oscillators</li>
+          <li>Sweep generator: linear or logarithmic sine sweep</li>
+          <li>Noise generator with interactive high-pass and low-pass filter</li>
+          <li>Wavelength calculator with multiplier presets</li>
+        </ul>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
