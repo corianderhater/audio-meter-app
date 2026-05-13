@@ -1141,6 +1141,203 @@ input {
   }
 }
 
+/* ──────────────── bpm meter tool ──────────────── */
+.bpm-tool {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 22px;
+  padding: 22px 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--ink);
+  min-height: 0;
+  overflow: auto;
+}
+
+.bpm-tool-toggle {
+  display: flex;
+  justify-content: center;
+}
+
+.bpm-tool-seg button {
+  padding: 0 24px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.bpm-tool-audio,
+.bpm-tool-tap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.bpm-tool-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 36px 16px;
+}
+
+.bpm-tool-hint {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: lowercase;
+  margin: 0;
+  text-align: center;
+}
+
+.bpm-tool-start {
+  min-width: 160px;
+}
+
+.bpm-tool-stop {
+  min-width: 160px;
+}
+
+.bpm-tool-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 200ms ease;
+}
+
+.bpm-tool-readout.dim {
+  opacity: 0.5;
+}
+
+.bpm-tool-num {
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.bpm-tool-unit {
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.bpm-tool-conf {
+  margin-top: 10px;
+  width: 200px;
+  height: 4px;
+  background: var(--ink-faint);
+}
+
+.bpm-tool-conf-fill {
+  height: 100%;
+  background: var(--ink);
+  transition: width 200ms ease;
+}
+
+.bpm-tool-conf-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bpm-tool-tap-count {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: lowercase;
+  margin-top: 8px;
+  min-height: 14px;
+}
+
+/* Huge tap button. `key`-based remount restarts the pulse animation on
+   every tap so it visibly registers even at fast tempo. */
+.bpm-tool-tap-btn {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  animation: bpm-tap-pulse 220ms ease-out;
+}
+
+.bpm-tool-tap-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.bpm-tool-tap-btn:active {
+  transform: scale(0.96);
+}
+
+@keyframes bpm-tap-pulse {
+  0% {
+    transform: scale(1);
+    background: var(--ink);
+    color: var(--bg);
+  }
+  100% {
+    transform: scale(1);
+    background: var(--bg);
+    color: var(--ink);
+  }
+}
+
+.bpm-tool-reset {
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--ink-faint);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+
+.bpm-tool-reset:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.bpm-tool-reset:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (max-width: 480px) {
+  .bpm-tool-num {
+    font-size: 72px;
+  }
+  .bpm-tool-tap-btn {
+    width: 200px;
+    height: 200px;
+    font-size: 24px;
+  }
+}
+
 /* ──────────────── sweep generator ──────────────── */
 .sweep-tool {
   flex: 1 1 auto;
@@ -1169,8 +1366,8 @@ input {
   text-transform: lowercase;
 }
 
-.sweep-type-seg {
-  min-width: 160px;
+.sweep-type-seg button {
+  padding: 0 24px;
 }
 
 .sweep-fields {
@@ -1579,6 +1776,39 @@ input {
   flex-direction: column;
   gap: 10px;
   transition: opacity 200ms ease;
+}
+
+.view-panel {
+  background: var(--panel);
+  border: 1px solid var(--ink);
+  padding: 14px 16px;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.view-panel-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  color: var(--ink-muted);
+  font-weight: 700;
+}
+
+.view-panel-select {
+  height: 36px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  padding: 0 10px;
+  cursor: pointer;
 }
 
 .keybox.dim {

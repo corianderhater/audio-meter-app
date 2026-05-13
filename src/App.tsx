@@ -1,13 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAudioAnalyser } from "./hooks/useAudioAnalyser";
 import { useTheme } from "./hooks/useTheme";
-import { Controls } from "./components/Controls";
 import { SpectrumView } from "./components/SpectrumView";
 import { LoudnessMeter } from "./components/LoudnessMeter";
 import { Spectrogram } from "./components/Spectrogram";
 import { Waterfall3D } from "./components/Waterfall3D";
-import { BpmDisplay } from "./components/BpmDisplay";
-import { KeyDisplay } from "./components/KeyDisplay";
+import { BpmMeter } from "./components/BpmMeter";
 import { Tuner } from "./components/Tuner";
 import { Metronome } from "./components/Metronome";
 import { SoundGenerator } from "./components/SoundGenerator";
@@ -40,6 +38,7 @@ const DEFAULT_CALIBRATION_DB = 125;
 type Mode =
   | "meter"
   | "tuner"
+  | "bpm"
   | "metronome"
   | "soundgen"
   | "noise"
@@ -69,6 +68,7 @@ function loadCalibration(): number {
 const VALID_MODES: readonly Mode[] = [
   "meter",
   "tuner",
+  "bpm",
   "metronome",
   "soundgen",
   "noise",
@@ -168,21 +168,23 @@ export function App() {
   }, [audio.status]);
 
   const running = audio.status === "running" && audio.analyser != null;
-  const title = "v1.1";
+  const title = "v1.2";
   const subtitle =
     mode === "tuner"
       ? "chromatic · a4 = 440 hz"
-      : mode === "metronome"
-        ? "30–300 bpm"
-        : mode === "soundgen"
-          ? "oscillators · sine · noise"
-          : mode === "noise"
-            ? "white · pink · band-pass"
-            : mode === "sweep"
-              ? "sine · log · linear"
-              : mode === "wavelength"
-                ? "λ = c / f"
-                : "20 hz – 20 khz";
+      : mode === "bpm"
+        ? "audio · tap tempo"
+        : mode === "metronome"
+          ? "30–300 bpm"
+          : mode === "soundgen"
+            ? "oscillators · sine · noise"
+            : mode === "noise"
+              ? "white · pink · band-pass"
+              : mode === "sweep"
+                ? "sine · log · linear"
+                : mode === "wavelength"
+                  ? "λ = c / f"
+                  : "20 hz – 20 khz";
 
   // Mic-using modes show a centered start circle inside the viz area when
   // not yet running. Other modes have their own internal play controls.
@@ -204,9 +206,11 @@ export function App() {
               const newMode = e.target.value as Mode;
               // Stop the mic when leaving a mic-using mode so it doesn't
               // keep running invisibly during metronome / sound generator.
+              // BPM stays on the list because its audio sub-mode uses the mic.
               if (
                 newMode !== "meter" &&
                 newMode !== "tuner" &&
+                newMode !== "bpm" &&
                 running
               ) {
                 audio.stop();
@@ -215,8 +219,9 @@ export function App() {
             }}
             aria-label="Mode"
           >
-            <option value="meter">meter</option>
+            <option value="meter">spectrum</option>
             <option value="tuner">tuner</option>
+            <option value="bpm">bpm</option>
             <option value="metronome">metronome</option>
             <option value="soundgen">sound generator</option>
             <option value="noise">noise</option>
@@ -244,16 +249,21 @@ export function App() {
               calibrationDb={calibrationDb}
               onCalibrationChange={setCalibrationDb}
             />
-            <BpmDisplay
-              analyser={audio.analyser}
-              sampleRate={audio.sampleRate}
-              fftSize={audio.fftSize}
-            />
-            <KeyDisplay
-              analyser={audio.analyser}
-              sampleRate={audio.sampleRate}
-              fftSize={audio.fftSize}
-            />
+            <div className="view-panel">
+              <span className="view-panel-label">view</span>
+              <select
+                className="view-panel-select"
+                value={view}
+                onChange={(e) => setView(e.target.value as ViewMode)}
+                aria-label="View"
+              >
+                <option value="globe">globe</option>
+                <option value="mesh">mesh</option>
+                <option value="ridges">ridges</option>
+                <option value="spectrogram">waterfall</option>
+                <option value="spectrum">spectrum</option>
+              </select>
+            </div>
           </div>
         )}
 
@@ -340,6 +350,7 @@ export function App() {
           {running && audio.analyser && mode === "tuner" && (
             <Tuner analyser={audio.analyser} sampleRate={audio.sampleRate} />
           )}
+          {mode === "bpm" && <BpmMeter audio={audio} />}
           {mode === "metronome" && <Metronome />}
           {mode === "soundgen" && <SoundGenerator />}
           {mode === "noise" && <NoiseGenerator />}
@@ -383,10 +394,6 @@ export function App() {
           </button>
         </div>
       </main>
-
-      {mode === "meter" && (
-        <Controls view={view} onViewChange={setView} />
-      )}
     </div>
   );
 }
